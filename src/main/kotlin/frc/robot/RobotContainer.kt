@@ -12,6 +12,10 @@ import edu.wpi.first.wpilibj.Joystick
 import edu.wpi.first.wpilibj2.command.InstantCommand
 import edu.wpi.first.wpilibj2.command.RunCommand
 import edu.wpi.first.wpilibj2.command.WaitCommand
+import edu.wpi.first.wpilibj2.command.button.JoystickButton
+import frc.robot.commands.drivetrain.ArcadeDrive
+import frc.robot.commands.flywheel.Disable
+import frc.robot.commands.flywheel.SetTarget
 import frc.robot.subsystems.DrivetrainSubsystem
 
 /**
@@ -37,9 +41,7 @@ class RobotContainer {
   }
 
   private fun setDefaultCommands() {
-    drivetrain.defaultCommand = RunCommand(
-        { drivetrain.arcadeDrive(throttle = -joystick.y, twist = -joystick.z, squareInputs = true) } as Runnable,
-        drivetrain)
+    drivetrain.defaultCommand = ArcadeDrive(-joystick.y, -joystick.z)
   }
 
   /**
@@ -49,12 +51,11 @@ class RobotContainer {
    * {@link edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private fun configureButtonBindings() {
+    JoystickButton(joystick, 1).whenPressed(SetTarget(2500.0)).whenReleased(Disable())
   }
 
   fun getAutonomousCommand(): Command {
     // Return the selected command
-    return InstantCommand(drivetrain::fastRecalibrateIMU as Runnable).andThen(
-        WaitCommand(0.2)
-    )
+    return InstantCommand()
   }
 }

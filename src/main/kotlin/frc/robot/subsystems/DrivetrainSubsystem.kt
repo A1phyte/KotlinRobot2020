@@ -6,8 +6,10 @@ import com.revrobotics.CANSparkMax
 import com.revrobotics.CANSparkMaxLowLevel.MotorType
 import edu.wpi.first.wpilibj.geometry.Pose2d
 import edu.wpi.first.wpilibj.geometry.Rotation2d
+import edu.wpi.first.wpilibj.kinematics.ChassisSpeeds
 import edu.wpi.first.wpilibj.kinematics.DifferentialDriveKinematics
 import edu.wpi.first.wpilibj.kinematics.DifferentialDriveOdometry
+import edu.wpi.first.wpilibj.kinematics.DifferentialDriveWheelSpeeds
 import edu.wpi.first.wpilibj.util.Units
 import edu.wpi.first.wpilibj2.command.SubsystemBase
 import frc.robot.Constants.DrivetrainConstants
@@ -21,25 +23,52 @@ object DrivetrainSubsystem : SubsystemBase() {
   private val rightMasterMotor = CANSparkMax(DrivetrainConstants.RIGHT_MASTER_ID, MotorType.kBrushless)
   private val rightSlaveMotor = CANSparkMax(DrivetrainConstants.RIGHT_SLAVE_ID, MotorType.kBrushless)
 
-  private val leftMasterEncoder = CANEncoder(leftMasterMotor)
-  private val leftSlaveEncoder = CANEncoder(leftSlaveMotor)
-  private val rightMasterEncoder = CANEncoder(rightMasterMotor)
-  private val rightSlaveEncoder = CANEncoder(rightSlaveMotor)
+  object Encoders {
+    private val leftEncoders: Array<CANEncoder> = arrayOf(CANEncoder(leftMasterMotor), CANEncoder(leftSlaveMotor))
+    private val rightEncoders: Array<CANEncoder> = arrayOf(CANEncoder(rightMasterMotor), CANEncoder(rightSlaveMotor))
 
-  private val encoders = arrayOf(leftMasterEncoder, leftSlaveEncoder, rightMasterEncoder, rightSlaveEncoder)
+    init {
+      leftEncoders.forEach {
+          it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+          it.positionConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+      }
+      rightEncoders.forEach {
+        it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+        it.positionConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+      }
+    }
+
+    /**
+     * @return total left encoder position in meters
+     */
+    fun getLeftPosition(): Double {
+      var sum = 0.0
+      for (encoder in leftEncoders) {
+        sum += encoder.position
+      }
+      return sum / leftEncoders.size
+    }
+
+    /**
+     * @return total right encoder position in meters
+     */
+    fun getRightPosition(): Double {
+      var sum = 0.0
+      for (encoder in rightEncoders) {
+        sum += encoder.position
+      }
+      return sum / leftEncoders.size
+    }
+  }
 
   private val odometry = DifferentialDriveOdometry(Rotation2d())
-  private val kinematics = DifferentialDriveKinematics(DrivetrainConstants.WHEEL_BASE_WIDTH)
+  val kinematics = DifferentialDriveKinematics(DrivetrainConstants.WHEEL_BASE_WIDTH)
 
   private val imu = ADIS16470_IMU()
 
   init {
     leftSlaveMotor.follow(leftMasterMotor)
     rightSlaveMotor.follow(rightMasterMotor)
-    arrayOf(leftMasterEncoder, leftMasterEncoder, rightMasterEncoder, rightSlaveEncoder).forEach {
-      it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
-      it.positionConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
-    }
   }
 
   /**
@@ -61,7 +90,7 @@ object DrivetrainSubsystem : SubsystemBase() {
               value = applyDeadband(value = throttle, deadband = DrivetrainConstants.DEADBAND)
                   + applyDeadband(value = twist, deadband = DrivetrainConstants.DEADBAND),
               max = 1.0) * 12
-        };
+        }
     val rightOutput =
         if (squareInputs) {
           constrain(
@@ -74,20 +103,43 @@ object DrivetrainSubsystem : SubsystemBase() {
               value = applyDeadband(value = throttle, deadband = DrivetrainConstants.DEADBAND)
                   - applyDeadband(value = twist, deadband = DrivetrainConstants.DEADBAND),
               max = 1.0) * 12.0
-        };
+        }
     leftMasterMotor.setVoltage(leftOutput)
     rightMasterMotor.setVoltage(rightOutput)
   }
 
-  @Override
-  override fun periodic() {
-    odometry.update(Rotation2d(getYaw()), getLeftPosition(), getRightPosition())
+  fun tankDrive(left: Double, right: Double, squareInputs: Boolean = true) {
+    leftMasterMotor.setVoltage(
+        if (squareInputs) {
+          constrain(
+              value = applyDeadband(value = left * abs(left), deadband = DrivetrainConstants.DEADBAND),
+              max = 1.0) * 12.0
+        } else {
+          constrain(
+              value = applyDeadband(value = left, deadband = DrivetrainConstants.DEADBAND),
+              max = 1.0) * 12.0
+        }
+    )
+    rightMasterMotor.setVoltage(
+        if (squareInputs) {
+          constrain(
+              value = applyDeadband(value = right * abs(right), deadband = DrivetrainConstants.DEADBAND),
+              max = 1.0) * 12.0
+        } else {
+          constrain(
+              value = applyDeadband(value = right, deadband = DrivetrainConstants.DEADBAND),
+              max = 1.0) * 12.0
+        }
+    )
   }
 
-  fun fastRecalibrateIMU() {
-    imu.configCalTime(ADIS16470_IMU.ADIS16470CalibrationTime._128ms)
-    imu.calibrate()
-    imu.configCalTime(ADIS16470_IMU.ADIS16470CalibrationTime._4s)
+  fun tankDriveVolts(left: Double, right: Double, squareInputs: Boolean = false) {
+    tankDrive(left = left / 12.0, right = right / 12.0, squareInputs = squareInputs)
+  }
+
+  @Override
+  override fun periodic() {
+    odometry.update(Rotation2d(getYaw()), Encoders.getLeftPosition(), Encoders.getRightPosition())
   }
 
   /**
@@ -104,20 +156,6 @@ object DrivetrainSubsystem : SubsystemBase() {
     return Units.degreesToRadians(imu.angle)
   }
 
-  /**
-   * @return total left encoder position in meters
-   */
-  fun getLeftPosition(): Double {
-    return arrayOf(leftMasterEncoder.position, leftSlaveEncoder.position).average()
-  }
-
-  /**
-   * @return total right encoder position in meters
-   */
-  fun getRightPosition(): Double {
-    return arrayOf(rightMasterEncoder.position, rightSlaveEncoder.position).average()
-  }
-
   fun getPose(): Pose2d {
     return odometry.poseMeters
   }
@@ -127,6 +165,6 @@ object DrivetrainSubsystem : SubsystemBase() {
   }
 
   fun resetOdometry(newPose: Pose2d, newAngle: Rotation2d) {
-    return odometry.resetPosition(newPose, newAngle)
+    odometry.resetPosition(newPose, newAngle)
   }
 }
