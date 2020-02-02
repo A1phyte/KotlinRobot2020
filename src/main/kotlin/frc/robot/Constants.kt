@@ -25,6 +25,8 @@ class Constants {
     const val RIGHT_SLAVE_ID = 0 // CAN ID
 
     const val DEADBAND = 0.1
+    const val MAX_OUTPUT = 1.0
+    const val MIN_OUTPUT = -1.0
 
     const val WHEEL_DIAMETER = 0.1524 // Meters
     const val WHEEL_CIRCUMFERENCE = WHEEL_DIAMETER * PI // Meters
@@ -37,11 +39,19 @@ class Constants {
 
     const val WHEEL_BASE_WIDTH = 0.0 // Meters
 
-    const val MAX_SPEED = 0.0 // Meters per second
+    const val MAX_SPEED = 3.0 // Meters per second
     const val MAX_ACCELERATION = 0.0 // Meters per second
     const val MAX_ANGULAR_VELOCITY = 0.0
 
-    const val omegaCorrection = 0.0
+    // Smart Motion Constants
+    const val SM_KFF = 12.0 / MAX_SPEED
+    const val SM_KP = 5E-5
+    const val SM_KI = 2E-6
+    const val SM_KD = 0.0
+    const val SM_KI_ZONE = 0.0
+    const val SM_MAX_VEL = MAX_SPEED
+
+    const val SM_I_LIMIT = 10.0
   }
 
   object FlywheelConstants {

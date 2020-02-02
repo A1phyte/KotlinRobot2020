@@ -4,6 +4,8 @@ import com.analog.adis16470.frc.ADIS16470_IMU
 import com.revrobotics.CANEncoder
 import com.revrobotics.CANSparkMax
 import com.revrobotics.CANSparkMaxLowLevel.MotorType
+import com.revrobotics.ControlType
+import edu.wpi.first.wpilibj.controller.SimpleMotorFeedforward
 import edu.wpi.first.wpilibj.geometry.Pose2d
 import edu.wpi.first.wpilibj.geometry.Rotation2d
 import edu.wpi.first.wpilibj.kinematics.ChassisSpeeds
@@ -23,17 +25,21 @@ object DrivetrainSubsystem : SubsystemBase() {
   private val rightMasterMotor = CANSparkMax(DrivetrainConstants.RIGHT_MASTER_ID, MotorType.kBrushless)
   private val rightSlaveMotor = CANSparkMax(DrivetrainConstants.RIGHT_SLAVE_ID, MotorType.kBrushless)
 
+  private val openLoopFeedforward = SimpleMotorFeedforward(0.0, 12.0 / DrivetrainConstants.MAX_SPEED)
+
+  var closedLoopAccumError = 0.0;
+
   object Encoders {
     private val leftEncoders: Array<CANEncoder> = arrayOf(CANEncoder(leftMasterMotor), CANEncoder(leftSlaveMotor))
     private val rightEncoders: Array<CANEncoder> = arrayOf(CANEncoder(rightMasterMotor), CANEncoder(rightSlaveMotor))
 
     init {
       leftEncoders.forEach {
-          it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+          it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION / 60.0
           it.positionConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
       }
       rightEncoders.forEach {
-        it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
+        it.velocityConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION / 60.0
         it.positionConversionFactor = DrivetrainConstants.DISTANCE_PER_REVOLUTION
       }
     }
@@ -69,43 +75,8 @@ object DrivetrainSubsystem : SubsystemBase() {
   init {
     leftSlaveMotor.follow(leftMasterMotor)
     rightSlaveMotor.follow(rightMasterMotor)
-  }
 
-  /**
-   *
-   * @param throttle positive is forward.
-   * @param twist positive is counterclockwise.
-   * @param squareInputs square inputs for finer controls or not
-   */
-  fun arcadeDrive(throttle: Double, twist: Double, squareInputs: Boolean = true) {
-    val leftOutput =
-        if (squareInputs) {
-          constrain(
-              value = applyDeadband(value = throttle * abs(throttle), deadband = DrivetrainConstants.DEADBAND)
-                  + applyDeadband(value = twist * abs(twist), deadband = DrivetrainConstants.DEADBAND),
-              max = 1.0) * 12
-        }
-        else {
-          constrain(
-              value = applyDeadband(value = throttle, deadband = DrivetrainConstants.DEADBAND)
-                  + applyDeadband(value = twist, deadband = DrivetrainConstants.DEADBAND),
-              max = 1.0) * 12
-        }
-    val rightOutput =
-        if (squareInputs) {
-          constrain(
-              value = applyDeadband(value = throttle * abs(throttle), deadband = DrivetrainConstants.DEADBAND)
-                  - applyDeadband(value = twist * abs(twist), deadband = DrivetrainConstants.DEADBAND),
-              max = 1.0) * 12.0
-        }
-        else {
-          constrain(
-              value = applyDeadband(value = throttle, deadband = DrivetrainConstants.DEADBAND)
-                  - applyDeadband(value = twist, deadband = DrivetrainConstants.DEADBAND),
-              max = 1.0) * 12.0
-        }
-    leftMasterMotor.setVoltage(leftOutput)
-    rightMasterMotor.setVoltage(rightOutput)
+    configureSMPID()
   }
 
   fun tankDrive(left: Double, right: Double, squareInputs: Boolean = true) {
@@ -135,6 +106,33 @@ object DrivetrainSubsystem : SubsystemBase() {
 
   fun tankDriveVolts(left: Double, right: Double, squareInputs: Boolean = false) {
     tankDrive(left = left / 12.0, right = right / 12.0, squareInputs = squareInputs)
+  }
+
+  /**
+   * @param left target meters per second for left drivetrain
+   * @param right target meters per second for right drivetrain
+   */
+  fun closedLoopDrive(left: Double, right: Double) {
+    leftMasterMotor.pidController.setReference(left, ControlType.kVelocity)
+    rightMasterMotor.pidController.setReference(right, ControlType.kVelocity)
+
+    closedLoopAccumError = leftMasterMotor.pidController.iAccum.coerceAtLeast(rightMasterMotor.pidController.iAccum)
+  }
+
+  fun openLoopDrive(left: Double, right: Double) {
+    leftMasterMotor.setVoltage(constrain(openLoopFeedforward.calculate(left), 12.0))
+    rightMasterMotor.setVoltage(constrain(openLoopFeedforward.calculate(right), 12.0))
+  }
+
+  private fun configureSMPID() {
+    for (controller in arrayOf(leftMasterMotor.pidController, rightMasterMotor.pidController)) {
+      controller.p = DrivetrainConstants.SM_KP
+      controller.i = DrivetrainConstants.SM_KI
+      controller.d = DrivetrainConstants.SM_KD
+      controller.ff = DrivetrainConstants.SM_KFF
+      controller.iZone = DrivetrainConstants.SM_KI_ZONE
+      controller.setSmartMotionMaxVelocity(DrivetrainConstants.SM_MAX_VEL, 0)
+    }
   }
 
   @Override

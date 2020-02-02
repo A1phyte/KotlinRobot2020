@@ -10,10 +10,8 @@ package frc.robot
 import edu.wpi.first.wpilibj2.command.Command
 import edu.wpi.first.wpilibj.Joystick
 import edu.wpi.first.wpilibj2.command.InstantCommand
-import edu.wpi.first.wpilibj2.command.RunCommand
-import edu.wpi.first.wpilibj2.command.WaitCommand
 import edu.wpi.first.wpilibj2.command.button.JoystickButton
-import frc.robot.commands.drivetrain.ArcadeDrive
+import frc.robot.commands.drivetrain.ClosedLoopArcadeDrive
 import frc.robot.commands.flywheel.Disable
 import frc.robot.commands.flywheel.SetTarget
 import frc.robot.subsystems.DrivetrainSubsystem
@@ -41,7 +39,7 @@ class RobotContainer {
   }
 
   private fun setDefaultCommands() {
-    drivetrain.defaultCommand = ArcadeDrive(-joystick.y, -joystick.z)
+    drivetrain.defaultCommand = ClosedLoopArcadeDrive(joystick, true)
   }
 
   /**
