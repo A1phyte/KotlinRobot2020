@@ -4,7 +4,7 @@ import kotlin.math.*
 
 fun applyDeadband(value: Double, deadband: Double, default: Double = 0.0): Double {
   return when {
-    abs(value) > deadband -> value
+    abs(value) > abs(deadband) -> value
     else -> default
   }
 }

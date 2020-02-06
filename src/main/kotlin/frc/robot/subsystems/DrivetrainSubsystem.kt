@@ -2,16 +2,15 @@ package frc.robot.subsystems
 
 import com.analog.adis16470.frc.ADIS16470_IMU
 import com.revrobotics.CANEncoder
+import com.revrobotics.CANPIDController
 import com.revrobotics.CANSparkMax
 import com.revrobotics.CANSparkMaxLowLevel.MotorType
 import com.revrobotics.ControlType
 import edu.wpi.first.wpilibj.controller.SimpleMotorFeedforward
 import edu.wpi.first.wpilibj.geometry.Pose2d
 import edu.wpi.first.wpilibj.geometry.Rotation2d
-import edu.wpi.first.wpilibj.kinematics.ChassisSpeeds
 import edu.wpi.first.wpilibj.kinematics.DifferentialDriveKinematics
 import edu.wpi.first.wpilibj.kinematics.DifferentialDriveOdometry
-import edu.wpi.first.wpilibj.kinematics.DifferentialDriveWheelSpeeds
 import edu.wpi.first.wpilibj.util.Units
 import edu.wpi.first.wpilibj2.command.SubsystemBase
 import frc.robot.Constants.DrivetrainConstants
@@ -24,6 +23,10 @@ object DrivetrainSubsystem : SubsystemBase() {
   private val leftSlaveMotor = CANSparkMax(DrivetrainConstants.LEFT_SLAVE_ID, MotorType.kBrushless)
   private val rightMasterMotor = CANSparkMax(DrivetrainConstants.RIGHT_MASTER_ID, MotorType.kBrushless)
   private val rightSlaveMotor = CANSparkMax(DrivetrainConstants.RIGHT_SLAVE_ID, MotorType.kBrushless)
+
+  // Because getPIDController() uses constructor, which means heap allocation in a loop
+  private val leftController = CANPIDController(leftMasterMotor)
+  private val rightController = CANPIDController(rightMasterMotor)
 
   private val openLoopFeedforward = SimpleMotorFeedforward(0.0, 12.0 / DrivetrainConstants.MAX_SPEED)
 
@@ -113,8 +116,8 @@ object DrivetrainSubsystem : SubsystemBase() {
    * @param right target meters per second for right drivetrain
    */
   fun closedLoopDrive(left: Double, right: Double) {
-    leftMasterMotor.pidController.setReference(left, ControlType.kVelocity)
-    rightMasterMotor.pidController.setReference(right, ControlType.kVelocity)
+    leftController.setReference(left, ControlType.kVelocity)
+    rightController.setReference(right, ControlType.kVelocity)
 
     closedLoopAccumError = leftMasterMotor.pidController.iAccum.coerceAtLeast(rightMasterMotor.pidController.iAccum)
   }

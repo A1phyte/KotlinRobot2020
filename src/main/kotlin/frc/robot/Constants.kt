@@ -43,7 +43,7 @@ class Constants {
     const val MAX_ACCELERATION = 0.0 // Meters per second
     const val MAX_ANGULAR_VELOCITY = 0.0
 
-    // Smart Motion Constants
+    // Smart Motion Constants, all in meters and volts
     const val SM_KFF = 12.0 / MAX_SPEED
     const val SM_KP = 5E-5
     const val SM_KI = 2E-6
@@ -63,5 +63,7 @@ class Constants {
     const val GEAR_RATIO = 1.0
 
     const val MAX_RPM = 5000.0
+
+    const val HOOD_MOTOR_ID = 0
   }
 }

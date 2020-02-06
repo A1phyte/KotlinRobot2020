@@ -6,7 +6,10 @@ import edu.wpi.first.wpilibj2.command.CommandBase
 import edu.wpi.first.wpilibj2.command.RunCommand
 import frc.robot.Constants.DrivetrainConstants
 import frc.robot.subsystems.DrivetrainSubsystem
+import frc.robot.util.applyDeadband
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.withSign
 
 open class ClosedLoopArcadeDrive(private val joystick: Joystick, private val squareInputs: Boolean) : CommandBase() {
   init {
@@ -28,15 +31,13 @@ open class ClosedLoopArcadeDrive(private val joystick: Joystick, private val squ
         twist * DrivetrainConstants.MAX_ANGULAR_VELOCITY
         ))
 
-    var leftSpeed = targetSpeeds.leftMetersPerSecond / DrivetrainConstants.DISTANCE_PER_REVOLUTION
-    var rightSpeed = targetSpeeds.rightMetersPerSecond / DrivetrainConstants.DISTANCE_PER_REVOLUTION
+    var leftSpeed = targetSpeeds.leftMetersPerSecond
+    var rightSpeed = targetSpeeds.rightMetersPerSecond
 
-    if (leftSpeed > DrivetrainConstants.MAX_SPEED) {
-      rightSpeed *= (DrivetrainConstants.MAX_SPEED / leftSpeed)
-      leftSpeed = DrivetrainConstants.MAX_SPEED
-    } else if (rightSpeed > DrivetrainConstants.MAX_SPEED) {
-      leftSpeed *= (DrivetrainConstants.MAX_SPEED / rightSpeed)
-      rightSpeed = DrivetrainConstants.MAX_SPEED
+    val maxSpeed = max(leftSpeed, rightSpeed)
+    if (maxSpeed > DrivetrainConstants.MAX_SPEED) {
+      leftSpeed *= DrivetrainConstants.MAX_SPEED / maxSpeed
+      rightSpeed *= DrivetrainConstants.MAX_SPEED / maxSpeed
     }
 
     DrivetrainSubsystem.closedLoopDrive(leftSpeed, rightSpeed);
@@ -59,8 +60,8 @@ open class OpenLoopArcadeDrive(private val joystick: Joystick, private val squar
   }
 
   override fun execute() {
-    var throttle = -joystick.y
-    var twist = -joystick.z
+    var throttle = applyDeadband(-joystick.y, DrivetrainConstants.DEADBAND)
+    var twist = applyDeadband(-joystick.z, DrivetrainConstants.DEADBAND)
 
     if (squareInputs) {
       throttle *= abs(throttle)
@@ -73,15 +74,13 @@ open class OpenLoopArcadeDrive(private val joystick: Joystick, private val squar
         twist * DrivetrainConstants.MAX_ANGULAR_VELOCITY
     ))
 
-    var leftSpeed = targetSpeeds.leftMetersPerSecond / DrivetrainConstants.DISTANCE_PER_REVOLUTION
-    var rightSpeed = targetSpeeds.rightMetersPerSecond / DrivetrainConstants.DISTANCE_PER_REVOLUTION
+    var leftSpeed = targetSpeeds.leftMetersPerSecond
+    var rightSpeed = targetSpeeds.rightMetersPerSecond
 
-    if (leftSpeed > DrivetrainConstants.MAX_SPEED) {
-      rightSpeed *= (DrivetrainConstants.MAX_SPEED / leftSpeed)
-      leftSpeed = DrivetrainConstants.MAX_SPEED
-    } else if (rightSpeed > DrivetrainConstants.MAX_SPEED) {
-      leftSpeed *= (DrivetrainConstants.MAX_SPEED / rightSpeed)
-      rightSpeed = DrivetrainConstants.MAX_SPEED
+    val maxSpeed = max(leftSpeed, rightSpeed)
+    if (maxSpeed > DrivetrainConstants.MAX_SPEED) {
+      leftSpeed *= DrivetrainConstants.MAX_SPEED / maxSpeed
+      rightSpeed *= DrivetrainConstants.MAX_SPEED / maxSpeed
     }
 
     DrivetrainSubsystem.openLoopDrive(leftSpeed, rightSpeed);

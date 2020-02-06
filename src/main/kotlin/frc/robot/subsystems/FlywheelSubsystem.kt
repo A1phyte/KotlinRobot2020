@@ -11,6 +11,8 @@ object FlywheelSubsystem : SubsystemBase() {
   private val leftMotor = CANSparkMax(FlywheelConstants.LEFT_MOTOR_ID, MotorType.kBrushless)
   private val rightMotor = CANSparkMax(FlywheelConstants.RIGHT_MOTOR_ID, MotorType.kBrushless)
 
+  private val hoodMotor = CANSparkMax(FlywheelConstants.HOOD_MOTOR_ID, MotorType.kBrushed)
+
   private val leftEncoder = CANEncoder(leftMotor)
   private val rightEncoder = CANEncoder(rightMotor)
 
